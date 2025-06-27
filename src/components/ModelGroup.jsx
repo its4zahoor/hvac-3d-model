@@ -1,6 +1,5 @@
 // src/components/ModelGroup.jsx
-import { useGLTF } from '@react-three/drei';
-import { Grid } from '@react-three/drei';
+import { useGLTF, Grid } from '@react-three/drei';
 import { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -17,16 +16,17 @@ const modelPaths = {
   DAMPER3: '/models/DAMPER3.glb',
   DAMPER4: '/models/DAMPER4.glb',
   DAMPER5: '/models/DAMPER5.glb',
-  PRE_FILTER1: '/models/PRE-FILTER1.glb',
-  PRE_FILTER2: '/models/PRE-FILTER2.glb',
+  'PRE-FILTER1': '/models/PRE-FILTER1.glb',
+  'PRE-FILTER2': '/models/PRE-FILTER2.glb',
   SENSOR1: '/models/SENSOR1.glb',
   SENSOR2: '/models/SENSOR2.glb',
 };
 
 export default function ModelGroup({ visibility, onCenterChange }) {
   const groupRef = useRef();
+  const lastCenter = useRef(new THREE.Vector3());
 
-  // Load all models
+  // 1) Call every hook at top‐level, in a stable order
   const ductGLTF = useGLTF(modelPaths.DUCT);
   const fan1GLTF = useGLTF(modelPaths.FAN1);
   const fan2GLTF = useGLTF(modelPaths.FAN2);
@@ -39,68 +39,80 @@ export default function ModelGroup({ visibility, onCenterChange }) {
   const damper3GLTF = useGLTF(modelPaths.DAMPER3);
   const damper4GLTF = useGLTF(modelPaths.DAMPER4);
   const damper5GLTF = useGLTF(modelPaths.DAMPER5);
-  const preFilter1GLTF = useGLTF(modelPaths.PRE_FILTER1);
-  const preFilter2GLTF = useGLTF(modelPaths.PRE_FILTER2);
+  const preFilter1GLTF = useGLTF(modelPaths['PRE-FILTER1']);
+  const preFilter2GLTF = useGLTF(modelPaths['PRE-FILTER2']);
   const sensor1GLTF = useGLTF(modelPaths.SENSOR1);
   const sensor2GLTF = useGLTF(modelPaths.SENSOR2);
 
-  const gltfMap = {
-    DUCT: ductGLTF,
-    FAN1: fan1GLTF,
-    FAN2: fan2GLTF,
-    FILTER: filterGLTF,
-    HOT: hotGLTF,
-    COOL: coolGLTF,
-    HRW: hrwGLTF,
-    DAMPER1: damper1GLTF,
-    DAMPER2: damper2GLTF,
-    DAMPER3: damper3GLTF,
-    DAMPER4: damper4GLTF,
-    DAMPER5: damper5GLTF,
-    PRE_FILTER1: preFilter1GLTF,
-    PRE_FILTER2: preFilter2GLTF,
-    SENSOR1: sensor1GLTF,
-    SENSOR2: sensor2GLTF,
-  };
-
-  // Only consider visible models
-  const visibleModelNames = Object.keys(modelPaths).filter(
-    (name) => visibility[name]
+  // 2) Bundle them in a memo’d map (so its identity is stable
+  //    unless one of the GLTF objects actually changes)
+  const gltfMap = useMemo(
+    () => ({
+      DUCT: ductGLTF,
+      FAN1: fan1GLTF,
+      FAN2: fan2GLTF,
+      FILTER: filterGLTF,
+      HOT: hotGLTF,
+      COOL: coolGLTF,
+      HRW: hrwGLTF,
+      DAMPER1: damper1GLTF,
+      DAMPER2: damper2GLTF,
+      DAMPER3: damper3GLTF,
+      DAMPER4: damper4GLTF,
+      DAMPER5: damper5GLTF,
+      'PRE-FILTER1': preFilter1GLTF,
+      'PRE-FILTER2': preFilter2GLTF,
+      SENSOR1: sensor1GLTF,
+      SENSOR2: sensor2GLTF,
+    }),
+    [
+      ductGLTF,
+      fan1GLTF,
+      fan2GLTF,
+      filterGLTF,
+      hotGLTF,
+      coolGLTF,
+      hrwGLTF,
+      damper1GLTF,
+      damper2GLTF,
+      damper3GLTF,
+      damper4GLTF,
+      damper5GLTF,
+      preFilter1GLTF,
+      preFilter2GLTF,
+      sensor1GLTF,
+      sensor2GLTF,
+    ]
   );
-  const allVisibleLoaded = visibleModelNames.every(
-    (name) => gltfMap[name] && gltfMap[name].scene
+
+  // 3) Select only the visible ones
+  const visibleScenes = useMemo(
+    () =>
+      Object.entries(gltfMap)
+        .filter(([name]) => visibility[name])
+        .map(([, { scene }]) => scene),
+    [visibility, gltfMap]
   );
 
-  // Only the visible ones, cloned (memoized)
-  const loadedModels = useMemo(() => {
-    return visibleModelNames
-      .map((name) =>
-        gltfMap[name] && gltfMap[name].scene
-          ? gltfMap[name].scene.clone()
-          : null
-      )
-      .filter(Boolean);
-  }, [visibility, allVisibleLoaded]);
+  // 4) Clone them so we don’t mutate the shared cache
+  const clones = useMemo(
+    () => visibleScenes.map((scene) => scene.clone(true)),
+    [visibleScenes]
+  );
 
-  // Compute bounding box and center
+  // 5) Recompute bounding‐box, recenter group, and fire callback
   useEffect(() => {
-    if (loadedModels.length === 0) return;
+    if (clones.length === 0) return;
     const box = new THREE.Box3();
-    loadedModels.forEach((scene) => {
-      box.expandByObject(scene);
-    });
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    // Notify parent of new center
-    if (onCenterChange) onCenterChange(center);
-    // Center the group
-    if (groupRef.current) {
-      groupRef.current.position.set(-center.x, -center.y, -center.z);
-    }
-  }, [loadedModels, onCenterChange]);
+    clones.forEach((sc) => box.expandByObject(sc));
+    const center = box.getCenter(new THREE.Vector3());
 
-  // Only render when all visible models are loaded
-  if (visibleModelNames.length > 0 && !allVisibleLoaded) return null;
+    if (!center.equals(lastCenter.current)) {
+      lastCenter.current.copy(center);
+      groupRef.current.position.set(-center.x, -center.y, -center.z);
+      onCenterChange?.(center);
+    }
+  }, [clones, onCenterChange]);
 
   return (
     <group ref={groupRef}>
@@ -118,11 +130,12 @@ export default function ModelGroup({ visibility, onCenterChange }) {
         infiniteGrid={true}
       />
       <axesHelper args={[5]} />
-      {loadedModels.map((scene, idx) => (
-        <primitive key={idx} object={scene} />
+      {clones.map((scene, i) => (
+        <primitive key={i} object={scene} />
       ))}
     </group>
   );
 }
 
-useGLTF.preload = Object.values(modelPaths);
+// preload all models
+Object.values(modelPaths).forEach((path) => useGLTF.preload(path));

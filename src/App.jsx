@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -33,14 +32,18 @@ export default function App() {
     setVisibility((prev) => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // Callback to receive center from ModelGroup
   const handleCenterChange = (center) => {
     setModelCenter([center.x, center.y, center.z]);
   };
 
   return (
     <div
-      style={{ display: 'flex', height: '100vh', backgroundColor: '#1e1e1e' }}
+      style={{
+        display: 'flex',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: '#1e1e1e',
+      }}
     >
       <aside
         style={{
