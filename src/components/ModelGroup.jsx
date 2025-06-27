@@ -44,8 +44,7 @@ export default function ModelGroup({ visibility, onCenterChange }) {
   const sensor1GLTF = useGLTF(modelPaths.SENSOR1);
   const sensor2GLTF = useGLTF(modelPaths.SENSOR2);
 
-  // 2) Bundle them in a memo’d map (so its identity is stable
-  //    unless one of the GLTF objects actually changes)
+  // 2) Bundle them in a memo’d map (so its identity is stable unless one of the GLTF objects actually changes)
   const gltfMap = useMemo(
     () => ({
       DUCT: ductGLTF,
@@ -85,7 +84,20 @@ export default function ModelGroup({ visibility, onCenterChange }) {
     ]
   );
 
-  // 3) Select only the visible ones
+  // 3) All scenes (for bounding box)
+  const allScenes = useMemo(
+    () => Object.values(gltfMap).map((g) => g.scene),
+    [gltfMap]
+  );
+
+  // 4) Compute the center of the bounding box of all models
+  const modelCenter = useMemo(() => {
+    const box = new THREE.Box3();
+    allScenes.forEach((sc) => box.expandByObject(sc));
+    return box.getCenter(new THREE.Vector3());
+  }, [allScenes]);
+
+  // 5) Select only the visible ones
   const visibleScenes = useMemo(
     () =>
       Object.entries(gltfMap)
@@ -94,25 +106,25 @@ export default function ModelGroup({ visibility, onCenterChange }) {
     [visibility, gltfMap]
   );
 
-  // 4) Clone them so we don’t mutate the shared cache
+  // 6) Clone them so we don’t mutate the shared cache
   const clones = useMemo(
     () => visibleScenes.map((scene) => scene.clone(true)),
     [visibleScenes]
   );
 
-  // 5) Recompute bounding‐box, recenter group, and fire callback
+  // 7) Always recenter group based on the full model's bounding box
   useEffect(() => {
-    if (clones.length === 0) return;
-    const box = new THREE.Box3();
-    clones.forEach((sc) => box.expandByObject(sc));
-    const center = box.getCenter(new THREE.Vector3());
-
-    if (!center.equals(lastCenter.current)) {
-      lastCenter.current.copy(center);
-      groupRef.current.position.set(-center.x, -center.y, -center.z);
-      onCenterChange?.(center);
+    if (!modelCenter) return;
+    if (!modelCenter.equals(lastCenter.current)) {
+      lastCenter.current.copy(modelCenter);
+      groupRef.current.position.set(
+        -modelCenter.x,
+        -modelCenter.y,
+        -modelCenter.z
+      );
+      onCenterChange?.(modelCenter);
     }
-  }, [clones, onCenterChange]);
+  }, [modelCenter, onCenterChange]);
 
   return (
     <group ref={groupRef}>
