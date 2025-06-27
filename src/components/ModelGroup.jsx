@@ -1,6 +1,7 @@
 import { useGLTF, Grid, Html } from '@react-three/drei';
 import { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
+import AnnotationBox from './Annotations';
 
 const modelPaths = {
   DUCT: '/models/DUCT.glb',
@@ -56,7 +57,7 @@ export default function ModelGroup({ visibility, onCenterChange }) {
     [duct, fan1, fan2, filter, hot, cool, hrw, damper1, sensor1, sensor2]
   );
 
-  // 3) build & clone only what’s visible
+  // 3) build & clone only what's visible
   const visibleScenes = useMemo(
     () =>
       Object.entries(gltfMap)
@@ -90,22 +91,49 @@ export default function ModelGroup({ visibility, onCenterChange }) {
   const annos = useMemo(() => {
     const map = {};
     const lookup = [
-      ['FAN1', fan1, 'RPM: 1 200'],
-      ['FAN2', fan2, 'RPM: 1 100'],
-      ['SENSOR1', sensor1, '23 °C'],
-      ['SENSOR2', sensor2, '45 % RH'],
-      ['DAMPER1', damper1, 'Open: 75 %'],
+      [
+        'FAN1',
+        fan1,
+        [
+          { label: 'RPM', value: 1200 },
+          { label: 'Speed', value: '1200' },
+        ],
+      ],
+      [
+        'FAN2',
+        fan2,
+        [
+          { label: 'RPM', value: 1100 },
+          { label: 'Speed', value: '1100' },
+        ],
+      ],
+      [
+        'SENSOR1',
+        sensor1,
+        [
+          { label: 'Temp', value: '23°C' },
+          { label: 'Humidity', value: '45 %' },
+        ],
+      ],
+      [
+        'DAMPER1',
+        damper1,
+        [
+          { label: 'Open', value: '75%' },
+          { label: 'Position', value: '0.75' },
+        ],
+      ],
     ];
-    lookup.forEach(([key, gltf, label]) => {
+    lookup.forEach(([key, gltf, data]) => {
       // find by node name inside the scene
       const node = gltf.scene.getObjectByName(key);
       if (node) {
-        // record its local position
-        map[key] = { pos: node.position.clone(), label };
+        // record its local position and data
+        map[key] = { pos: node.position.clone(), data };
       }
     });
-    return map; // e.g. { FAN1: { pos: Vector3, label: 'RPM…' }, … }
-  }, [fan1, fan2, sensor1, sensor2, damper1]);
+    return map; // e.g. { FAN1: { pos: Vector3, data: [...] }, … }
+  }, [fan1, fan2, sensor1, damper1]);
 
   return (
     <group ref={groupRef}>
@@ -129,7 +157,7 @@ export default function ModelGroup({ visibility, onCenterChange }) {
       ))}
 
       {/* 6) render HTML annotations only for visible keys */}
-      {Object.entries(annos).map(([key, { pos, label }]) =>
+      {Object.entries(annos).map(([key, { pos, data }]) =>
         visibility[key] ? (
           <Html
             key={key}
@@ -138,7 +166,7 @@ export default function ModelGroup({ visibility, onCenterChange }) {
             center
             distanceFactor={8}
           >
-            <div className='annotation'>{label}</div>
+            <AnnotationBox data={data} />
           </Html>
         ) : null
       )}

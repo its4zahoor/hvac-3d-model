@@ -37,46 +37,31 @@ export default function App() {
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: '#1e1e1e',
-      }}
-    >
-      <aside
-        style={{
-          width: '250px',
-          padding: '1rem',
-          background: '#2a2a2a',
-          color: '#fff',
-          overflowY: 'auto',
-          zIndex: 10,
-        }}
-      >
-        <h3 style={{ marginBottom: '1rem' }}>Toggle Parts</h3>
-        {MODEL_LIST.map((name) => (
-          <div key={name} style={{ marginBottom: '0.5rem' }}>
-            <label style={{ cursor: 'pointer' }}>
-              <input
-                type='checkbox'
-                checked={visibility[name]}
-                onChange={() => toggleVisibility(name)}
-                style={{ marginRight: '0.5rem' }}
-              />
-              {name}
-            </label>
-          </div>
-        ))}
+    <div className='flex h-screen w-screen bg-neutral-900'>
+      <aside className='w-[250px] p-4 bg-neutral-800 text-white overflow-y-auto z-10 border-r border-neutral-700'>
+        <h3 className='mb-4 text-lg font-semibold tracking-wide'>
+          Visible Components
+        </h3>
+        <div className='space-y-2'>
+          {MODEL_LIST.map((name) => (
+            <div key={name} className='flex items-center'>
+              <label className='flex items-center cursor-pointer select-none'>
+                <input
+                  type='checkbox'
+                  checked={visibility[name]}
+                  onChange={() => toggleVisibility(name)}
+                  className='mr-2 accent-blue-500 w-4 h-4 rounded focus:ring-2 focus:ring-blue-400'
+                />
+                <span className='text-sm font-medium'>{name}</span>
+              </label>
+            </div>
+          ))}
+        </div>
       </aside>
-
-      <main
-        style={{ flex: 1, flexGrow: 1, minWidth: 800, position: 'relative' }}
-      >
+      <main className='flex-1 min-w-0 relative'>
         <Canvas
           camera={{ position: [5, 3, 8], fov: 60 }}
-          style={{ width: '100%', height: '100%' }}
+          className='w-full h-full'
         >
           <ambientLight intensity={0.6} />
           <directionalLight position={[10, 10, 5]} intensity={1.2} />
