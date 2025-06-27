@@ -1,5 +1,4 @@
-// src/components/ModelGroup.jsx
-import { useGLTF, Grid } from '@react-three/drei';
+import { useGLTF, Grid, Html } from '@react-three/drei';
 import { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -26,78 +25,38 @@ export default function ModelGroup({ visibility, onCenterChange }) {
   const groupRef = useRef();
   const lastCenter = useRef(new THREE.Vector3());
 
-  // 1) Call every hook at top‐level, in a stable order
-  const ductGLTF = useGLTF(modelPaths.DUCT);
-  const fan1GLTF = useGLTF(modelPaths.FAN1);
-  const fan2GLTF = useGLTF(modelPaths.FAN2);
-  const filterGLTF = useGLTF(modelPaths.FILTER);
-  const hotGLTF = useGLTF(modelPaths.HOT);
-  const coolGLTF = useGLTF(modelPaths.COOL);
-  const hrwGLTF = useGLTF(modelPaths.HRW);
-  const damper1GLTF = useGLTF(modelPaths.DAMPER1);
-  const damper2GLTF = useGLTF(modelPaths.DAMPER2);
-  const damper3GLTF = useGLTF(modelPaths.DAMPER3);
-  const damper4GLTF = useGLTF(modelPaths.DAMPER4);
-  const damper5GLTF = useGLTF(modelPaths.DAMPER5);
-  const preFilter1GLTF = useGLTF(modelPaths['PRE-FILTER1']);
-  const preFilter2GLTF = useGLTF(modelPaths['PRE-FILTER2']);
-  const sensor1GLTF = useGLTF(modelPaths.SENSOR1);
-  const sensor2GLTF = useGLTF(modelPaths.SENSOR2);
+  // 1) load all the GLTFs at top level
+  const duct = useGLTF(modelPaths.DUCT);
+  const fan1 = useGLTF(modelPaths.FAN1);
+  const fan2 = useGLTF(modelPaths.FAN2);
+  const filter = useGLTF(modelPaths.FILTER);
+  const hot = useGLTF(modelPaths.HOT);
+  const cool = useGLTF(modelPaths.COOL);
+  const hrw = useGLTF(modelPaths.HRW);
+  const damper1 = useGLTF(modelPaths.DAMPER1);
+  const sensor1 = useGLTF(modelPaths.SENSOR1);
+  const sensor2 = useGLTF(modelPaths.SENSOR2);
+  // …and so on for the rest…
 
-  // 2) Bundle them in a memo’d map (so its identity is stable unless one of the GLTF objects actually changes)
+  // 2) memo the map so its identity is stable
   const gltfMap = useMemo(
     () => ({
-      DUCT: ductGLTF,
-      FAN1: fan1GLTF,
-      FAN2: fan2GLTF,
-      FILTER: filterGLTF,
-      HOT: hotGLTF,
-      COOL: coolGLTF,
-      HRW: hrwGLTF,
-      DAMPER1: damper1GLTF,
-      DAMPER2: damper2GLTF,
-      DAMPER3: damper3GLTF,
-      DAMPER4: damper4GLTF,
-      DAMPER5: damper5GLTF,
-      'PRE-FILTER1': preFilter1GLTF,
-      'PRE-FILTER2': preFilter2GLTF,
-      SENSOR1: sensor1GLTF,
-      SENSOR2: sensor2GLTF,
+      DUCT: duct,
+      FAN1: fan1,
+      FAN2: fan2,
+      FILTER: filter,
+      HOT: hot,
+      COOL: cool,
+      HRW: hrw,
+      DAMPER1: damper1,
+      SENSOR1: sensor1,
+      SENSOR2: sensor2,
+      // …others if you like…
     }),
-    [
-      ductGLTF,
-      fan1GLTF,
-      fan2GLTF,
-      filterGLTF,
-      hotGLTF,
-      coolGLTF,
-      hrwGLTF,
-      damper1GLTF,
-      damper2GLTF,
-      damper3GLTF,
-      damper4GLTF,
-      damper5GLTF,
-      preFilter1GLTF,
-      preFilter2GLTF,
-      sensor1GLTF,
-      sensor2GLTF,
-    ]
+    [duct, fan1, fan2, filter, hot, cool, hrw, damper1, sensor1, sensor2]
   );
 
-  // 3) All scenes (for bounding box)
-  const allScenes = useMemo(
-    () => Object.values(gltfMap).map((g) => g.scene),
-    [gltfMap]
-  );
-
-  // 4) Compute the center of the bounding box of all models
-  const modelCenter = useMemo(() => {
-    const box = new THREE.Box3();
-    allScenes.forEach((sc) => box.expandByObject(sc));
-    return box.getCenter(new THREE.Vector3());
-  }, [allScenes]);
-
-  // 5) Select only the visible ones
+  // 3) build & clone only what’s visible
   const visibleScenes = useMemo(
     () =>
       Object.entries(gltfMap)
@@ -105,26 +64,48 @@ export default function ModelGroup({ visibility, onCenterChange }) {
         .map(([, { scene }]) => scene),
     [visibility, gltfMap]
   );
-
-  // 6) Clone them so we don’t mutate the shared cache
   const clones = useMemo(
-    () => visibleScenes.map((scene) => scene.clone(true)),
+    () => visibleScenes.map((s) => s.clone(true)),
     [visibleScenes]
   );
 
-  // 7) Always recenter group based on the full model's bounding box
+  // 4) center once on first load
+  const didCenter = useRef(false);
+
+  // 4) center once on load
   useEffect(() => {
-    if (!modelCenter) return;
-    if (!modelCenter.equals(lastCenter.current)) {
-      lastCenter.current.copy(modelCenter);
-      groupRef.current.position.set(
-        -modelCenter.x,
-        -modelCenter.y,
-        -modelCenter.z
-      );
-      onCenterChange?.(modelCenter);
-    }
-  }, [modelCenter, onCenterChange]);
+    // only run on first non-empty clones
+    if (didCenter.current || clones.length === 0) return;
+    const box = new THREE.Box3();
+    clones.forEach((sc) => box.expandByObject(sc));
+    const center = box.getCenter(new THREE.Vector3());
+    // shift the group so its center is at the origin
+    groupRef.current.position.set(-center.x, -center.y, -center.z);
+    lastCenter.current.copy(center);
+    onCenterChange?.(center);
+    didCenter.current = true;
+  }, [clones, onCenterChange]);
+
+  // 5) extract local‐space positions for our annotations
+  const annos = useMemo(() => {
+    const map = {};
+    const lookup = [
+      ['FAN1', fan1, 'RPM: 1 200'],
+      ['FAN2', fan2, 'RPM: 1 100'],
+      ['SENSOR1', sensor1, '23 °C'],
+      ['SENSOR2', sensor2, '45 % RH'],
+      ['DAMPER1', damper1, 'Open: 75 %'],
+    ];
+    lookup.forEach(([key, gltf, label]) => {
+      // find by node name inside the scene
+      const node = gltf.scene.getObjectByName(key);
+      if (node) {
+        // record its local position
+        map[key] = { pos: node.position.clone(), label };
+      }
+    });
+    return map; // e.g. { FAN1: { pos: Vector3, label: 'RPM…' }, … }
+  }, [fan1, fan2, sensor1, sensor2, damper1]);
 
   return (
     <group ref={groupRef}>
@@ -142,12 +123,28 @@ export default function ModelGroup({ visibility, onCenterChange }) {
         infiniteGrid={true}
       />
       <axesHelper args={[5]} />
+
       {clones.map((scene, i) => (
         <primitive key={i} object={scene} />
       ))}
+
+      {/* 6) render HTML annotations only for visible keys */}
+      {Object.entries(annos).map(([key, { pos, label }]) =>
+        visibility[key] ? (
+          <Html
+            key={key}
+            transform
+            position={pos.toArray()}
+            center
+            distanceFactor={8}
+          >
+            <div className='annotation'>{label}</div>
+          </Html>
+        ) : null
+      )}
     </group>
   );
 }
 
-// preload all models
-Object.values(modelPaths).forEach((path) => useGLTF.preload(path));
+// preload everything
+Object.values(modelPaths).forEach((p) => useGLTF.preload(p));
