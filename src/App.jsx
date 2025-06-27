@@ -37,14 +37,14 @@ export default function App() {
   };
 
   return (
-    <div className='flex h-screen w-screen bg-neutral-900'>
-      <aside className='w-[250px] p-4 bg-neutral-800 text-white overflow-y-auto z-10 border-r border-neutral-700'>
-        <h3 className='mb-4 text-lg font-semibold tracking-wide'>
+    <div className='flex flex-col sm:flex-row h-screen w-screen bg-neutral-900'>
+      <aside className='w-full sm:w-[250px] p-2 sm:p-4 bg-neutral-800 text-white z-10 border-b sm:border-b-0 sm:border-r border-neutral-700 flex-shrink-0'>
+        <h3 className='mb-2 sm:mb-4 text-base sm:text-lg font-semibold tracking-wide text-center sm:text-left'>
           Visible Components
         </h3>
-        <div className='space-y-2'>
+        <div className='grid grid-cols-2 sm:flex sm:flex-col gap-x-2 gap-y-1 sm:gap-x-0 sm:gap-y-2'>
           {MODEL_LIST.map((name) => (
-            <div key={name} className='flex items-center'>
+            <div key={name} className='flex items-center flex-shrink-0'>
               <label className='flex items-center cursor-pointer select-none'>
                 <input
                   type='checkbox'
@@ -52,16 +52,18 @@ export default function App() {
                   onChange={() => toggleVisibility(name)}
                   className='mr-2 accent-blue-500 w-4 h-4 rounded focus:ring-2 focus:ring-blue-400'
                 />
-                <span className='text-sm font-medium'>{name}</span>
+                <span className='text-xs sm:text-sm font-medium whitespace-nowrap'>
+                  {name}
+                </span>
               </label>
             </div>
           ))}
         </div>
       </aside>
-      <main className='flex-1 min-w-0 relative'>
+      <main className='flex-1 min-w-0 relative min-h-[300px]'>
         <Canvas
           camera={{ position: [5, 3, 8], fov: 60 }}
-          className='w-full h-full'
+          className='w-full h-[60vh] sm:h-full'
         >
           <ambientLight intensity={0.6} />
           <directionalLight position={[10, 10, 5]} intensity={1.2} />
