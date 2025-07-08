@@ -1,5 +1,6 @@
 import { useGLTF, Grid, Html } from '@react-three/drei';
 import { useEffect, useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import AnnotationBox from './Annotations';
 
@@ -22,7 +23,24 @@ const modelPaths = {
   SENSOR2: '/models/SENSOR2.glb',
 };
 
-export default function ModelGroup({ visibility, onCenterChange }) {
+// Animated Fan Component
+function AnimatedFan({ scene, isAnimating, speed = 2 }) {
+  const meshRef = useRef();
+
+  useFrame((state, delta) => {
+    if (isAnimating && meshRef.current) {
+      meshRef.current.rotation.y += delta * speed;
+    }
+  });
+
+  return <primitive ref={meshRef} object={scene} />;
+}
+
+export default function ModelGroup({
+  visibility,
+  onCenterChange,
+  fanAnimation,
+}) {
   const groupRef = useRef();
   const lastCenter = useRef(new THREE.Vector3());
 
@@ -35,9 +53,14 @@ export default function ModelGroup({ visibility, onCenterChange }) {
   const cool = useGLTF(modelPaths.COOL);
   const hrw = useGLTF(modelPaths.HRW);
   const damper1 = useGLTF(modelPaths.DAMPER1);
+  const damper2 = useGLTF(modelPaths.DAMPER2);
+  const damper3 = useGLTF(modelPaths.DAMPER3);
+  const damper4 = useGLTF(modelPaths.DAMPER4);
+  const damper5 = useGLTF(modelPaths.DAMPER5);
+  const preFilter1 = useGLTF(modelPaths['PRE-FILTER1']);
+  const preFilter2 = useGLTF(modelPaths['PRE-FILTER2']);
   const sensor1 = useGLTF(modelPaths.SENSOR1);
   const sensor2 = useGLTF(modelPaths.SENSOR2);
-  // …and so on for the rest…
 
   // 2) memo the map so its identity is stable
   const gltfMap = useMemo(
@@ -50,11 +73,33 @@ export default function ModelGroup({ visibility, onCenterChange }) {
       COOL: cool,
       HRW: hrw,
       DAMPER1: damper1,
+      DAMPER2: damper2,
+      DAMPER3: damper3,
+      DAMPER4: damper4,
+      DAMPER5: damper5,
+      'PRE-FILTER1': preFilter1,
+      'PRE-FILTER2': preFilter2,
       SENSOR1: sensor1,
       SENSOR2: sensor2,
-      // …others if you like…
     }),
-    [duct, fan1, fan2, filter, hot, cool, hrw, damper1, sensor1, sensor2]
+    [
+      duct,
+      fan1,
+      fan2,
+      filter,
+      hot,
+      cool,
+      hrw,
+      damper1,
+      damper2,
+      damper3,
+      damper4,
+      damper5,
+      preFilter1,
+      preFilter2,
+      sensor1,
+      sensor2,
+    ]
   );
 
   // 3) build & clone only what's visible
@@ -95,16 +140,16 @@ export default function ModelGroup({ visibility, onCenterChange }) {
         'FAN1',
         fan1,
         [
-          { label: 'RPM', value: 1200 },
-          { label: 'Speed', value: '1200' },
+          { label: 'RPM', value: fanAnimation ? '1200' : '0' },
+          { label: 'Speed', value: fanAnimation ? '1200' : '0' },
         ],
       ],
       [
         'FAN2',
         fan2,
         [
-          { label: 'RPM', value: 1100 },
-          { label: 'Speed', value: '1100' },
+          { label: 'RPM', value: fanAnimation ? '1100' : '0' },
+          { label: 'Speed', value: fanAnimation ? '1100' : '0' },
         ],
       ],
       [
@@ -133,7 +178,7 @@ export default function ModelGroup({ visibility, onCenterChange }) {
       }
     });
     return map; // e.g. { FAN1: { pos: Vector3, data: [...] }, … }
-  }, [fan1, fan2, sensor1, damper1]);
+  }, [fan1, fan2, sensor1, damper1, fanAnimation]);
 
   return (
     <group ref={groupRef}>
@@ -152,9 +197,30 @@ export default function ModelGroup({ visibility, onCenterChange }) {
       />
       <axesHelper args={[5]} />
 
-      {clones.map((scene, i) => (
-        <primitive key={i} object={scene} />
-      ))}
+      {/* Render fans with animation */}
+      {visibility.FAN1 && (
+        <AnimatedFan
+          scene={fan1.scene.clone(true)}
+          isAnimating={fanAnimation}
+          speed={2}
+        />
+      )}
+      {visibility.FAN2 && (
+        <AnimatedFan
+          scene={fan2.scene.clone(true)}
+          isAnimating={fanAnimation}
+          speed={1.5}
+        />
+      )}
+
+      {/* Render other components normally */}
+      {Object.entries(gltfMap)
+        .filter(
+          ([name]) => visibility[name] && name !== 'FAN1' && name !== 'FAN2'
+        )
+        .map(([, { scene }], i) => (
+          <primitive key={i} object={scene.clone(true)} />
+        ))}
 
       {/* 6) render HTML annotations only for visible keys */}
       {Object.entries(annos).map(([key, { pos, data }]) =>

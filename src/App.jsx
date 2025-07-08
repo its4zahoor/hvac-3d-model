@@ -27,9 +27,14 @@ export default function App() {
     Object.fromEntries(MODEL_LIST.map((name) => [name, true]))
   );
   const [modelCenter, setModelCenter] = useState([0, 0, 0]);
+  const [fanAnimation, setFanAnimation] = useState(false);
 
   const toggleVisibility = (name) => {
     setVisibility((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  const toggleFanAnimation = () => {
+    setFanAnimation((prev) => !prev);
   };
 
   const handleCenterChange = (center) => {
@@ -59,6 +64,20 @@ export default function App() {
             </div>
           ))}
         </div>
+
+        {/* Fan Animation Toggle */}
+        <div className='mt-4 pt-4 border-t border-neutral-700'>
+          <button
+            onClick={toggleFanAnimation}
+            className={`w-full px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              fanAnimation
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-neutral-700 hover:bg-neutral-600 text-white'
+            }`}
+          >
+            {fanAnimation ? '🔄 Fans Running' : '⏸️ Fans Stopped'}
+          </button>
+        </div>
       </aside>
       <main className='flex-1 min-w-0 relative min-h-[300px]'>
         <Canvas
@@ -79,6 +98,7 @@ export default function App() {
           <ModelGroup
             visibility={visibility}
             onCenterChange={handleCenterChange}
+            fanAnimation={fanAnimation}
           />
         </Canvas>
       </main>
