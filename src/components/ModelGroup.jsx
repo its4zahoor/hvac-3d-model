@@ -8,6 +8,8 @@ const modelPaths = {
   DUCT: '/models/DUCT.glb',
   FAN1: '/models/FAN1.glb',
   FAN2: '/models/FAN2.glb',
+  FAN1LEAF: '/models/FAN1LEAF.glb',
+  FAN2LEAF: '/models/FAN2LEAF.glb',
   FILTER: '/models/FILTER.glb',
   HOT: '/models/HOT.glb',
   COOL: '/models/COOL.glb',
@@ -25,15 +27,40 @@ const modelPaths = {
 
 // Animated Fan Component
 function AnimatedFan({ scene, isAnimating, speed = 2 }) {
-  const meshRef = useRef();
+  const pivotRef = useRef();
 
-  useFrame((state, delta) => {
-    if (isAnimating && meshRef.current) {
-      meshRef.current.rotation.y += delta * speed;
+  useEffect(() => {
+    if (scene) {
+      const clone = scene.clone(true);
+      const fanMesh = clone.children[0]; // Assumes 1 mesh inside
+
+      if (fanMesh) {
+        // Compute center of geometry in local space
+        const bbox = new THREE.Box3().setFromObject(fanMesh);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+
+        // Offset mesh so its center aligns with the pivot group's origin
+        fanMesh.position.sub(center);
+
+        // Add mesh to pivot group
+        pivotRef.current.add(fanMesh);
+
+        // Move pivot group to where fanMesh was originally
+        pivotRef.current.position.copy(center);
+      } else {
+        console.warn('Fan mesh not found in scene.');
+      }
+    }
+  }, [scene]);
+
+  useFrame((_, delta) => {
+    if (isAnimating && pivotRef.current) {
+      pivotRef.current.rotation.z += delta * speed;
     }
   });
 
-  return <primitive ref={meshRef} object={scene} />;
+  return <group ref={pivotRef} />;
 }
 
 export default function ModelGroup({
@@ -61,6 +88,8 @@ export default function ModelGroup({
   const preFilter2 = useGLTF(modelPaths['PRE-FILTER2']);
   const sensor1 = useGLTF(modelPaths.SENSOR1);
   const sensor2 = useGLTF(modelPaths.SENSOR2);
+  const fan1leaf = useGLTF(modelPaths.FAN1LEAF);
+  const fan2leaf = useGLTF(modelPaths.FAN2LEAF);
 
   // 2) memo the map so its identity is stable
   const gltfMap = useMemo(
@@ -81,6 +110,8 @@ export default function ModelGroup({
       'PRE-FILTER2': preFilter2,
       SENSOR1: sensor1,
       SENSOR2: sensor2,
+      FAN1LEAF: fan1leaf,
+      FAN2LEAF: fan2leaf,
     }),
     [
       duct,
@@ -99,6 +130,8 @@ export default function ModelGroup({
       preFilter2,
       sensor1,
       sensor2,
+      fan1leaf,
+      fan2leaf,
     ]
   );
 
@@ -198,16 +231,16 @@ export default function ModelGroup({
       <axesHelper args={[5]} />
 
       {/* Render fans with animation */}
-      {visibility.FAN1 && (
+      {visibility.FAN1LEAF && (
         <AnimatedFan
-          scene={fan1.scene.clone(true)}
+          scene={fan1leaf.scene.clone(true)}
           isAnimating={fanAnimation}
           speed={2}
         />
       )}
-      {visibility.FAN2 && (
+      {visibility.FAN2LEAF && (
         <AnimatedFan
-          scene={fan2.scene.clone(true)}
+          scene={fan2leaf.scene.clone(true)}
           isAnimating={fanAnimation}
           speed={1.5}
         />
@@ -216,7 +249,8 @@ export default function ModelGroup({
       {/* Render other components normally */}
       {Object.entries(gltfMap)
         .filter(
-          ([name]) => visibility[name] && name !== 'FAN1' && name !== 'FAN2'
+          ([name]) =>
+            visibility[name] && name !== 'FAN1LEAF' && name !== 'FAN2LEAF'
         )
         .map(([, { scene }], i) => (
           <primitive key={i} object={scene.clone(true)} />

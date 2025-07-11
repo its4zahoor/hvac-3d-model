@@ -20,6 +20,8 @@ const MODEL_LIST = [
   'PRE-FILTER2',
   'SENSOR1',
   'SENSOR2',
+  'FAN1LEAF',
+  'FAN2LEAF',
 ];
 
 export default function App() {
